@@ -44,6 +44,7 @@ git checkout -b feature/your-feature-name # create and go to a new branch based 
 ### 2. Modifying & Pushing Files
 Keep your commits small, focused, and give them clear messages.
 ```bash
+git status # check all the files that have been modified and added before you add to your queue
 git add . # add all changes that you have made to your queue
 git commit -m "feat: description of changes" # save all your changes in the queue with a message 
 # you can keep using git add and git commit to save your progress everytime you do a small task
@@ -88,3 +89,8 @@ When someone else adds a package and you pull their changes down, sync your envi
 ```bash
 pip install -r requirements.txt
 ```
+
+---
+
+## 4. Adding to README.md
+Make sure that after working on a file and doing all the add and commits needed, add to the README.md with a brief description of the file before pushing to main!
