@@ -66,12 +66,13 @@ git branch -d feature/your-feature-name # delete the previous branch on your loc
 ## 🐍 3. Managing Python Packages
 
 Our virtual environment folder (`.venv/`) is ignored by Git. Instead, we track packages using `requirements.txt`.
-I have setup the requirements.txt, so all you need to do to setup your own local python environment is below.
+I have setup the requirements.txt, so all you need to do to setup your own local python environment as below.
 
 ### Setting Up Python Environment
 ```bash
 git pull origin main # pull the latest code
 python -m venv .venv # create their own local environment
+# or python3 -m venv .venv if above doesn't work
 source .venv/bin/activate # activate it
 # or .venv\Scripts\activate on Windows
 pip install -r requirements.txt # install everything from the shared recipe list
