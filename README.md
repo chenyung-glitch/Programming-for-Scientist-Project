@@ -4,18 +4,46 @@ Welcome! This is the 02601 Project for the Greedy Genome Gobblers. Our project i
 
 In this README.md file, you will find a list of files and their descriptions, our function and class heirarchy and description, and etc.... (to be added as more things come up)
 
+## 0. To-Do
+
+* [X] Setup repo and environment
+* [X] Generate genome
+* [X] Generate reads
+* [X] Generate k-mers
+* [ ] 
 
 ---
 
 ## 1. Files
+
 .gitignore
+
 - File that makes sure that when you are adding, committing, and pushing files, it ignores certain files from being saved into the remote repo.
 
 CONTRIBUTING.md
+
 - File that details how to setup a local git repo and python environment, save and upload your changes, and keep our changes clean and detailed.
 
 README.md
+
 - File containing overview of our project, including file, class, and function heirarchy, structure, and brief description.
 
 requirements.txt
+
 - File containing shared list of python packages to keep our python virtual environments synced and clean.
+
+main.py
+
+* File containing our main analysis scripts.
+
+test.py
+
+* File testing our functions.
+
+genome.py
+
+* File containing the functions needed to generate a random genome sequence, random short reads, and k-mer list.
+
+---
+
+## 2. Function Heirarchy
