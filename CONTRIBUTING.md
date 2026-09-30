@@ -54,9 +54,9 @@ git status # check all the files that have been modified and added before you ad
 git checkout feature/your-feature-name # move to the branch where you want the changes to be at
 git add . # add all changes that you have made to your queue
 git commit -m "feat: description of changes" # save all your changes in the queue with a message 
+git commit # save all your changes and add commit message in vim
 # you can keep using git add and git commit to save your progress everytime you do a small task
 git push origin feature/your-feature-name # push your changes to the remote github to be approved
-hello
 ```
 
 ### 3. Merging
