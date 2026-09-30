@@ -1,0 +1,17 @@
+# Virtual environment folder (do not upload)
+.venv/
+venv/
+env/
+ENV/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDE configurations
+.vscode/
+.idea/
+
+# Local environment variables (passwords, API keys)
+.env
