@@ -36,6 +36,10 @@ main.py
 
 * File containing our main analysis scripts.
 
+levenshtein.py
+
+* File containing a memory-efficient Levenshtein distance function for comparing strings or short biological sequences.
+
 test.py
 
 * File testing our functions.
