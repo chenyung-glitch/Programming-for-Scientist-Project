@@ -84,30 +84,58 @@ class DeBruijnGraph:
         self.edges.append(edge) # add edge to graph object to store (master edge list)
 
     def find_start_node(self):
-        start = None # no start node
+        """
+        Return the node an Eulerian path has to start at, or None when no
+        Eulerian path exists.
+
+        Degree conditions for a directed graph whose edges must each be used
+        exactly once:
+
+          * every node must satisfy in_degree == out_degree, except
+          * exactly one node may have out_degree - in_degree == 1 (the start),
+          * exactly one node may have in_degree - out_degree == 1 (the end).
+
+        When every node is balanced the graph holds an Eulerian cycle, so any
+        node that owns an outgoing edge can serve as the start.
+
+        A graph whose degrees are balanced but whose edges fall into several
+        connected components still has no single Eulerian path. That case is
+        caught in eulerian_path(), because the traversal cannot consume every
+        edge. Nodes left with no edges at all are ignored, they do not affect
+        edge traversal.
+        """
+
+        start_candidates = [] # nodes with out_degree - in_degree == 1
+        end_candidates = [] # nodes with in_degree - out_degree == 1
 
         for node in self.nodes.values(): # iterate over nodes
             out_degree = len(node.out_edges) # out degree
             in_degree = len(node.in_edges) # in degree
+            degree_difference = out_degree - in_degree
 
-            if in_degree == out_degree - 1: # in_degree lower than out
-                start = node
+            if degree_difference == 1:
+                start_candidates.append(node)
+            elif degree_difference == -1:
+                end_candidates.append(node)
+            elif degree_difference != 0: # difference is neither +1 nor -1
+                return None # invalid configuration, no Eulerian path
 
-            elif out_degree == in_degree - 1: # out_degree lower than in
-                continue # end node, skip
+        # More than one start or more than one end means the edges cannot be
+        # traversed as a single path, even if every local degree looks legal.
+        # (The number of start candidates always equals the number of end
+        # candidates, because out_degree - in_degree sums to zero over all
+        # nodes, so checking one side would already be enough.)
+        if len(start_candidates) > 1 or len(end_candidates) > 1:
+            return None
 
-            elif in_degree != out_degree: # invalid tree config check!!!
-                return None
-            
-        if start:
-            return start # if valid start, return
+        if start_candidates: # exactly one start and one matching end
+            return start_candidates[0]
 
+        for node in self.nodes.values(): # balanced graph: Eulerian cycle
+            if node.out_edges: # pick any node with an outgoing edge as start
+                return node
 
-        for node in self.nodes.values(): # NOTE: in this case, every node has equal in/out degree
-            if node.out_edges: # WE HAVE CYCLE!!!
-                return node # choose any node as start since cycle
-
-        return None
+        return None # graph has no edges at all
 
 
 def eulerian_path(graph):
