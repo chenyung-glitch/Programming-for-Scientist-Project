@@ -15,6 +15,7 @@ reconstruct a small synthetic genome whose answer we already know.
 Usage:
     python main.py             # deterministic ATGCGT example (primary demo)
     python main.py --random    # optional seeded random example, same pipeline
+    python main.py --visualize # write the three milestone figures to figures/
 """
 
 import random
@@ -28,6 +29,8 @@ from genome import (
     generate_random_genome,
     generate_random_short_reads,
 )
+
+FIGURE_DIRECTORY = "figures"
 
 
 def assemble(reads, k):
@@ -171,14 +174,61 @@ def run_random_example(seed=601, genome_length=40, read_length=8,
     return result
 
 
+def run_visualization(output_directory=FIGURE_DIRECTORY):
+    """
+    Assemble the deterministic fixture and write the three figures.
+
+    The figures are drawn from the real graph object and the real Eulerian path,
+    not from any hardcoded picture. The Matplotlib backend is non-interactive
+    (see graph_visualization), so this also works over SSH or in CI.
+
+    input:
+    output_directory (str): folder that receives the PNG files
+
+    output:
+    list[str]: paths of the generated figures
+    """
+
+    from graph_visualization import create_all_figures
+
+    dataset = SMALL_EXAMPLE
+    result = assemble(dataset["reads"], dataset["k"])
+
+    written = create_all_figures(
+        graph=result["graph"],
+        path=result["path"],
+        reference_genome=dataset["reference_genome"],
+        reads=dataset["reads"],
+        kmers=result["kmers"],
+        assembled_sequence=result["sequence"],
+        output_directory=output_directory,
+        k=dataset["k"],
+    )
+
+    print()
+    print("Visualizations written to:")
+    for figure_path in written:
+        print("  {}".format(figure_path))
+
+    return written
+
+
 def main():
     run_small_example()
 
-    if "--random" in sys.argv[1:]:
+    arguments = sys.argv[1:]
+
+    if "--random" in arguments:
         print()
         print("=" * 60)
         print()
         run_random_example()
+
+    if "--visualize" in arguments:
+        print()
+        print("=" * 60)
+        print()
+        run_visualization()
 
 
 if __name__ == "__main__":

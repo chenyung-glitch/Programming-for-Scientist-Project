@@ -9,7 +9,11 @@ dependency is needed beyond requirements.txt.
 """
 
 import random
+import os
+import tempfile
 import unittest
+
+import matplotlib.image as mpimg
 
 from data.small_dataset import LARGER_EXAMPLE, SMALL_EXAMPLE
 from de_brujin import DeBruijnGraph, Edge, eulerian_path, path_to_sequence
@@ -19,6 +23,7 @@ from genome import (
     generate_random_genome,
     generate_random_short_reads,
 )
+import graph_visualization as gv
 
 DNA_BASES = set("ATCG")
 
@@ -257,6 +262,179 @@ class TestDuplicateKmers(unittest.TestCase):
         # Degrees are counted per edge object, not per distinct k-mer string.
         self.assertEqual(len(graph.nodes["AT"].out_edges), 2)
         self.assertEqual(len(graph.nodes["TG"].in_edges), 2)
+
+
+class TestGraphVisualization(unittest.TestCase):
+    """graph_visualization reads the graph, it never changes it."""
+
+    def setUp(self):
+        self.temp_dir = tempfile.TemporaryDirectory()
+        self.small_graph = build_graph(SMALL_EXAMPLE["expected_kmers"])
+        self.small_path = eulerian_path(self.small_graph)
+
+    def tearDown(self):
+        self.temp_dir.cleanup()
+
+    def output(self, name):
+        return os.path.join(self.temp_dir.name, name)
+
+    # --- element extraction ---------------------------------------------
+
+    def test_node_labels_match_graph_nodes(self):
+        elements = gv.graph_elements(self.small_graph)
+        labels = sorted(node["label"] for node in elements["nodes"])
+        self.assertEqual(labels, sorted(self.small_graph.nodes.keys()))
+
+    def test_edge_labels_match_graph_kmers(self):
+        elements = gv.graph_elements(self.small_graph)
+        labels = [edge["kmer"] for edge in elements["edges"]]
+        self.assertEqual(labels, [edge.kmer for edge in self.small_graph.edges])
+
+    def test_start_and_end_nodes_are_highlighted(self):
+        elements = gv.graph_elements(self.small_graph)
+        self.assertEqual(elements["start_keys"], ["AT"])
+        self.assertEqual(elements["end_keys"], ["GT"])
+
+    def test_layout_is_deterministic(self):
+        first = gv.graph_elements(self.small_graph)
+        second = gv.graph_elements(self.small_graph)
+        self.assertEqual(
+            [node["position"] for node in first["nodes"]],
+            [node["position"] for node in second["nodes"]],
+        )
+
+    # --- path to edge mapping -------------------------------------------
+
+    def test_ordered_edges_follow_the_node_path(self):
+        from graph_visualization import ordered_edges_for_path
+
+        ordered = ordered_edges_for_path(self.small_graph, self.small_path)
+        self.assertIsNotNone(ordered)
+        self.assertEqual(len(ordered), len(self.small_graph.edges))
+        self.assertEqual(
+            [edge.kmer for edge in ordered],
+            SMALL_EXAMPLE["expected_kmers"],
+        )
+
+    def test_duplicate_edges_are_not_reused(self):
+        from graph_visualization import ordered_edges_for_path
+
+        graph = build_graph(["ATA", "TAT", "ATA"])
+        path = eulerian_path(graph)
+        ordered = ordered_edges_for_path(graph, path)
+
+        self.assertIsNotNone(ordered)
+        self.assertEqual(len(ordered), 3)
+        self.assertEqual(len({id(edge) for edge in ordered}), 3)
+
+    def test_ordered_edges_reject_unknown_path(self):
+        from graph_visualization import ordered_edges_for_path
+
+        # AT -> TG exists, but TG -> GG does not, so the step cannot be resolved.
+        graph = build_graph(["ATG"])
+        fake_path = [graph.nodes["TG"], graph.nodes["AA"] if "AA" in graph.nodes
+                     else graph.nodes["AT"]]
+        self.assertIsNone(ordered_edges_for_path(graph, fake_path))
+        self.assertEqual(ordered_edges_for_path(graph, None), [])
+
+    # --- graph must not be mutated --------------------------------------
+
+    def test_rendering_does_not_mutate_the_graph(self):
+        before = (
+            len(self.small_graph.nodes),
+            len(self.small_graph.edges),
+            {key: [id(edge) for edge in node.out_edges]
+             for key, node in self.small_graph.nodes.items()},
+        )
+
+        gv.visualize_debruijn_graph(self.small_graph, self.output("g.png"))
+        gv.visualize_eulerian_path(
+            self.small_graph, self.small_path, self.output("t.png")
+        )
+
+        after = (
+            len(self.small_graph.nodes),
+            len(self.small_graph.edges),
+            {key: [id(edge) for edge in node.out_edges]
+             for key, node in self.small_graph.nodes.items()},
+        )
+        self.assertEqual(before, after)
+
+    # --- rendering success ----------------------------------------------
+
+    def test_graph_figure_is_written_and_nonempty(self):
+        path = gv.visualize_debruijn_graph(self.small_graph, self.output("g.png"))
+        self.assertEqual(path, self.output("g.png"))
+        self.assertTrue(os.path.exists(path))
+        self.assertGreater(os.path.getsize(path), 1000)
+
+    def test_eulerian_figure_is_written_and_nonempty(self):
+        path = gv.visualize_eulerian_path(
+            self.small_graph, self.small_path, self.output("t.png")
+        )
+        self.assertTrue(os.path.exists(path))
+        self.assertGreater(os.path.getsize(path), 1000)
+
+    def test_sequence_figure_is_written_and_nonempty(self):
+        path = gv.visualize_sequence_reconstruction(
+            SMALL_EXAMPLE["reference_genome"],
+            SMALL_EXAMPLE["reads"],
+            SMALL_EXAMPLE["expected_kmers"],
+            "ATGCGT",
+            k=SMALL_EXAMPLE["k"],
+            output_path=self.output("s.png"),
+        )
+        self.assertTrue(os.path.exists(path))
+        self.assertGreater(os.path.getsize(path), 1000)
+
+    def test_missing_path_is_handled_safely(self):
+        # A disconnected graph yields no Eulerian path; the figure must still be
+        # produced and must not raise.
+        graph = build_graph(["ATG", "CGT"])
+        path = gv.visualize_eulerian_path(
+            graph, eulerian_path(graph), self.output("broken.png")
+        )
+        self.assertTrue(os.path.exists(path))
+        self.assertGreater(os.path.getsize(path), 1000)
+
+    def test_duplicate_edges_and_self_loops_render(self):
+        graph = build_graph(["ATG", "ATG", "AAA", "TGA"])
+        path = gv.visualize_debruijn_graph(graph, self.output("dup.png"))
+        self.assertTrue(os.path.exists(path))
+        self.assertGreater(os.path.getsize(path), 1000)
+
+        # The self-loop k-mer AAA maps to the node AA twice.
+        self.assertEqual(graph.nodes["AA"].node_key, "AA")
+        self.assertEqual(len(graph.nodes["AA"].out_edges), 1)
+
+    def test_all_figures_are_created_together(self):
+        written = gv.create_all_figures(
+            graph=self.small_graph,
+            path=self.small_path,
+            reference_genome=SMALL_EXAMPLE["reference_genome"],
+            reads=SMALL_EXAMPLE["reads"],
+            kmers=SMALL_EXAMPLE["expected_kmers"],
+            assembled_sequence="ATGCGT",
+            output_directory=os.path.join(self.temp_dir.name, "figures"),
+            k=SMALL_EXAMPLE["k"],
+        )
+        self.assertEqual(len(written), 3)
+        for path in written:
+            self.assertTrue(os.path.exists(path))
+            self.assertGreater(os.path.getsize(path), 1000)
+
+    def test_rendering_is_reproducible(self):
+        first = gv.visualize_debruijn_graph(
+            self.small_graph, self.output("first.png")
+        )
+        second = gv.visualize_debruijn_graph(
+            self.small_graph, self.output("second.png")
+        )
+
+        first_pixels = mpimg.imread(first)
+        second_pixels = mpimg.imread(second)
+        self.assertEqual(first_pixels.shape, second_pixels.shape)
+        self.assertTrue((first_pixels == second_pixels).all())
 
 
 if __name__ == "__main__":

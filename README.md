@@ -14,6 +14,7 @@ In this README.md file, you will find a list of files and their descriptions, ou
 * [X] Eulerian path traversal and sequence reconstruction
 * [X] Deterministic synthetic dataset with known ground truth
 * [X] Unit tests for generation, graph construction, and reconstruction
+* [X] De Bruijn graph and traversal visualization
 * [ ] Coverage-versus-accuracy experiments (future milestone)
 * [ ] Accuracy evaluation with Levenshtein distance (future milestone)
 * [ ] Sequencing error simulation (future milestone)
@@ -54,6 +55,14 @@ de_brujin.py
 
 * File containing the `Node`, `Edge`, and `DeBruijnGraph` classes, the Eulerian path traversal, and sequence reconstruction.
 
+graph_visualization.py
+
+* File containing the Matplotlib figures for the graph, the Eulerian traversal, and the whole pipeline.
+
+figures/
+
+* Generated PNG figures used in this README. Recreate them with `python main.py --visualize`.
+
 data/small_dataset.py
 
 * File containing the small deterministic synthetic datasets used by `main.py` and the tests, plus documentation of the expected k-mers and assembly.
@@ -89,6 +98,17 @@ data/small_dataset.py
 | `SMALL_EXAMPLE` | reference `ATGCGT`, reads `["ATGC", "GCGT"]`, `k = 3` | implemented |
 | `LARGER_EXAMPLE` | reference `ACGTTGCA`, reads `["ACGTT", "GTTGCA"]`, `k = 4` | implemented |
 | `get_dataset(name)` | look up one fixture by name | implemented |
+
+### graph_visualization.py
+
+| Function | Purpose | Status |
+| --- | --- | --- |
+| `graph_elements(graph)` | read nodes, edges, roles, and layout out of the graph | implemented |
+| `ordered_edges_for_path(graph, path)` | map an Eulerian node path onto distinct `Edge` instances | implemented |
+| `visualize_debruijn_graph(graph, output_path=None)` | draw nodes, directed k-mer edges, start/end highlights | implemented |
+| `visualize_eulerian_path(graph, path, output_path=None)` | draw the graph plus the numbered traversal | implemented |
+| `visualize_sequence_reconstruction(reference, reads, kmers, assembled, k=None, output_path=None)` | educational four-stage pipeline figure | implemented |
+| `create_all_figures(...)` | write all three PNGs into one directory | implemented |
 
 ---
 
@@ -142,6 +162,15 @@ genome. The seed is fixed, so the run is reproducible:
 python main.py --random
 ```
 
+The visualization mode writes the three milestone figures described in section 6:
+
+```bash
+python main.py --visualize
+```
+
+The two flags can be combined (`python main.py --random --visualize`); the
+figures always come from the deterministic fixture so that they stay reproducible.
+
 ## 5. Running the tests
 
 ```bash
@@ -155,7 +184,78 @@ deterministic reconstructions, duplicate k-mers being kept as separate edges,
 and invalid configurations (disconnected graphs, unbalanced degrees, multiple
 start nodes, empty graph).
 
-## 6. The synthetic dataset
+## 6. Graph Visualization
+
+`graph_visualization.py` only *draws* what the assembly pipeline already built.
+Nodes, edges, path order, and labels are read out of the real `DeBruijnGraph`
+object, so a figure can never drift away from the data structure.
+
+```bash
+python main.py --visualize
+```
+
+Output (paths are printed by the script):
+
+```
+figures/
+    debruijn_graph.png
+    eulerian_traversal.png
+    sequence_reconstruction.png
+```
+
+The Matplotlib backend is set to `Agg`, so nothing opens a window and the figures
+can be generated headlessly (server, CI, `ssh`). The layout is deterministic:
+nodes are ordered by topological level, so a linear chain is drawn in a straight
+row and repeated runs produce identical pixels.
+
+### De Bruijn graph
+
+![De Bruijn graph of the small fixture](figures/debruijn_graph.png)
+
+Every node is a `(k-1)`-mer and every arrow is a k-mer pointing from its prefix to
+its suffix; for `k = 3` the chain is
+`AT --ATG--> TG --TGC--> GC --GCG--> CG --CGT--> GT`.
+Nodes that can only start or only end an Eulerian path are coloured (green and
+orange). Repeated k-mers get their own bowed arrow and self-loops are drawn as
+loops, so no edge is hidden or merged.
+
+### Eulerian traversal
+
+![Eulerian traversal](figures/eulerian_traversal.png)
+
+The same graph with the traversal drawn on top: each used edge is numbered in
+traversal order and coloured along a gradient, unused edges stay grey. The
+reconstructed sequence is printed under the figure. When the graph has no valid
+Eulerian path, the figure says so instead of drawing an invented route.
+
+`eulerian_path()` returns `Node` objects, not edges. `ordered_edges_for_path()`
+resolves each step to the actual `Edge` instance by consuming a private copy of
+each node's `out_edges`, so two identical k-mers are never mapped to the same
+edge and the graph itself is never modified.
+
+### Sequence reconstruction
+
+![Sequence reconstruction pipeline](figures/sequence_reconstruction.png)
+
+The four stages of the pipeline on one set of nucleotide blocks, using the same
+base colours throughout: the reference genome, the input reads placed at their
+position, the k-mers of each read drawn as an offset staircase to show the `k-1`
+overlap, and the reconstructed genome. A read is only placed at a coordinate when
+its position is unambiguous; ambiguous reads are listed separately instead of
+being given a made-up origin.
+
+### Why a valid traversal is not a correct assembly
+
+The traversal in the second figure uses every observed k-mer exactly once — and
+that is all it proves. It does not prove the sequence is the original genome. A
+graph can accept a valid Eulerian path while still being wrong: uncovered regions
+leave gaps or separate components, repeats create branches with several legal
+routes, and sequencing errors create k-mers that never existed in the DNA. The
+figures therefore show two different questions side by side: which ordering of
+edges the graph admits, and whether the assembled sequence matches the known
+reference.
+
+## 7. The synthetic dataset
 
 `data/small_dataset.py` holds the fixtures. The primary one is:
 
@@ -170,7 +270,7 @@ samples. No external dataset, network access, or multi-thousand-sequence
 simulation is used, and `--random` reseeds with a fixed value so results do not
 drift between runs.
 
-## 7. Current limitations of the assembler
+## 8. Current limitations of the assembler
 
 * **No error correction.** Reads must be exact substrings of the genome; any
   sequencing error creates false k-mers and extra branches.
@@ -191,7 +291,7 @@ drift between runs.
 * **No accuracy metrics.** There is no Levenshtein distance, no coverage sweep,
   and no statistics yet.
 
-## 8. Deliberately unfinished (future milestones)
+## 9. Deliberately unfinished (future milestones)
 
 * Coverage-versus-accuracy experiments and parameter sweeps over k.
 * Levenshtein-distance based accuracy evaluation, means, and standard deviations.
@@ -201,7 +301,7 @@ drift between runs.
 * Hamiltonian-path comparison and a hybrid assembly algorithm.
 * Performance benchmarking, final scientific figures, and the final report.
 
-## 9. Why an Eulerian path is not a proof of correct assembly
+## 10. Why an Eulerian path is not a proof of correct assembly
 
 A single Eulerian path through all observed read-derived k-mers only means the
 observed k-mer multiset admits one ordering. It does not mean that ordering is
